@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>당신의 의료정보는 안전한가요?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Batang:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* layout: one phone-width column. Night-hospital backdrop, paper cards for records,
+     friendly blue only inside the app, red only for verdicts.
+     Voices: narration in batang serif (people), system text in gothic/mono (machines). */
+  --night:#0e1521;
+  --night-2:#172131;
+  --rule:#2b384b;
+  --paper:#eef0ec;
+  --ink:#131b26;
+  --mute:#8d9aad;
+  --alarm:#ff4f3f;
+  --app:#2f6bff;
+  --amber:#f6b345;
+  --f-display:'Black Han Sans','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  --f-narr:'Gowun Batang','AppleMyungjo','Batang',serif;
+  --f-ui:'IBM Plex Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:var(--night);color:var(--paper);
+  font-family:var(--f-ui);font-size:16px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;word-break:keep-all;overflow-wrap:anywhere;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+
+.stage{height:100%;max-width:440px;margin:0 auto;display:flex;flex-direction:column}
+
+/* HUD */
+.hud{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--rule);font-size:12px;color:var(--mute)}
+.stage.is-title .hud{display:none}
+.hud-ch{font-weight:600;color:var(--paper);white-space:nowrap}
+.pips{display:flex;gap:4px;list-style:none;margin:0;padding:0;flex:1}
+.pips li{height:3px;flex:1;background:var(--rule);border-radius:2px}
+.pips li.on{background:var(--paper)}
+.hud-count{white-space:nowrap;font-family:var(--f-mono)}
+.hud-count b{color:var(--amber);font-weight:500}
+.hud-count.leak b{color:var(--alarm)}
+
+/* Scene */
+.scene{flex:1;min-height:0;overflow-y:auto;padding:20px 20px 48px;display:flex;flex-direction:column;gap:16px}
+/* children must keep their full height; the scene scrolls instead of squeezing them */
+.scene>*{flex-shrink:0}
+.enter{animation:enter .4s ease both}
+@keyframes enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.chip{align-self:flex-start;font-family:var(--f-mono);font-size:12px;letter-spacing:.02em;color:var(--mute);border:1px solid var(--rule);border-radius:4px;padding:3px 8px}
+.narr{font-family:var(--f-narr);font-size:18px;line-height:1.75;margin:0}
+.narr strong{font-weight:700}
+.h2{font-family:var(--f-display);font-weight:400;font-size:32px;line-height:1.2;margin:4px 0 0;text-wrap:balance}
+.note{font-size:13px;color:var(--mute);margin:0}
+.fact{border-left:3px solid var(--alarm);padding:2px 0 2px 12px;margin:0;font-size:15px}
+.fact b{font-weight:600}
+
+.row{display:flex;flex-direction:column;gap:8px}
+.btn{min-height:52px;border-radius:10px;border:1px solid var(--rule);background:var(--night-2);padding:12px 16px;font-weight:600;font-size:16px;text-align:center}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--paper);color:var(--ink);border-color:var(--paper)}
+.btn.small{min-height:40px;font-size:14px;padding:8px 12px}
+.btn[disabled]{opacity:.5;cursor:default}
+
+/* Title */
+.title{display:flex;flex-direction:column;gap:20px;padding-top:12px}
+.eyebrow{font-family:var(--f-mono);font-size:12px;color:var(--mute);margin:0}
+.title h1{font-family:var(--f-display);font-weight:400;font-size:clamp(38px,11.5vw,50px);line-height:1.12;margin:0;text-wrap:balance}
+.title h1 em{font-style:normal;color:var(--amber)}
+.record{position:relative;background:var(--paper);color:var(--ink);border-radius:4px;padding:14px 16px;transform:rotate(-2.5deg);margin:8px 34px 4px 4px;font-size:13px;box-shadow:0 12px 30px rgba(0,0,0,.45)}
+.record-head{display:flex;justify-content:space-between;font-weight:600;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:8px}
+.record-head span:last-child{font-family:var(--f-mono);font-weight:400}
+.record dl{margin:0;display:grid;grid-template-columns:64px 1fr;gap:5px 8px}
+.record dt{color:#5a6676}
+.record dd{margin:0}
+.bar{display:inline-block;height:11px;background:var(--ink);border-radius:1px;vertical-align:middle}
+.tag{position:absolute;right:-30px;top:26px;background:var(--amber);color:var(--ink);font-family:var(--f-display);font-size:22px;line-height:1;padding:10px 12px 8px 20px;transform:rotate(11deg);clip-path:polygon(14px 0,100% 0,100% 100%,14px 100%,0 50%)}
+.tag::before{content:"";position:absolute;left:9px;top:50%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:var(--paper)}
+.lede{font-family:var(--f-narr);font-size:17px;line-height:1.75;margin:0}
+.lede em{font-style:normal;font-weight:700;color:var(--alarm)}
+
+.who{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;min-height:64px;border-radius:12px;border:1px solid var(--rule);background:var(--night-2);padding:12px 16px}
+.who b{font-size:17px;font-weight:600}
+.who span{font-size:13px;color:var(--mute)}
+.who:active{transform:translateY(1px)}
+
+/* Lock screen */
+.lock{background:linear-gradient(180deg,#1b2a40,#101927);border:1px solid var(--rule);border-radius:22px;padding:22px 14px 16px;display:flex;flex-direction:column;gap:10px}
+.lock-time{font-family:var(--f-mono);font-size:52px;line-height:1;text-align:center;font-weight:400;letter-spacing:-.02em}
+.lock-date{text-align:center;font-size:13px;color:var(--mute);margin-bottom:6px}
+.lock-list{display:flex;flex-direction:column;gap:10px}
+.notif{background:rgba(238,240,236,.1);border-radius:14px;padding:10px 12px;font-size:14px;line-height:1.55}
+.notif-head{display:flex;justify-content:space-between;font-size:12px;color:var(--mute);margin-bottom:2px;font-family:var(--f-mono)}
+.stamp{align-self:flex-end;margin:-4px 10px 0 0;display:flex;flex-direction:column;align-items:center;color:var(--alarm);border:4px solid var(--alarm);border-radius:8px;padding:6px 18px 0;font-family:var(--f-display);font-size:68px;line-height:1.05;transform:rotate(-8deg)}
+.stamp small{font-family:var(--f-ui);font-size:12px;font-weight:600;letter-spacing:.06em}
+.stamp.enter{animation:slam .38s cubic-bezier(.2,1.5,.4,1) both}
+@keyframes slam{from{opacity:0;transform:rotate(-8deg) scale(2.6)}to{opacity:1;transform:rotate(-8deg) scale(1)}}
+.dead{font-family:var(--f-mono);font-size:13px;color:var(--alarm);border:1px dashed var(--alarm);border-radius:8px;padding:10px 12px;margin:0}
+
+.trace{border-left:3px solid var(--amber);padding:2px 0 2px 12px;font-size:15px;line-height:1.6}
+.trace small{display:block;font-family:var(--f-mono);font-size:11px;color:var(--mute);word-spacing:-.25em}
+.trace b{font-weight:600}
+
+/* Rewind */
+.rewind{flex:1;display:flex;flex-direction:column;justify-content:center;gap:12px;min-height:300px}
+.rewind-word{font-family:var(--f-display);font-size:64px;line-height:1;margin:0}
+.rewind-tick{font-family:var(--f-mono);font-size:20px;color:var(--amber);margin:0}
+.tape{height:44px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);background:repeating-linear-gradient(90deg,var(--rule) 0 2px,transparent 2px 18px)}
+.tape.run{animation:tape .5s linear infinite}
+@keyframes tape{to{background-position:36px 0}}
+
+/* App */
+.app{background:#fff;color:var(--ink);border-radius:18px;overflow:hidden}
+.app-bar{background:var(--app);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:baseline}
+.app-bar b{font-size:18px;font-weight:600}
+.app-bar span{font-size:12px;opacity:.85}
+.app-body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px}
+.queue{display:flex;justify-content:space-between;font-size:13px;background:#eef3ff;border-radius:8px;padding:8px 10px}
+.queue b{color:var(--app);font-weight:600}
+.app h3{margin:0;font-size:16px;font-weight:600}
+.terms{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.terms li{border-bottom:1px solid #e3e7ee;padding:8px 0}
+.term-line{display:flex;align-items:flex-start;gap:8px}
+.term-line input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--app);flex:none}
+.term-line label{flex:1;font-size:14px;line-height:1.45}
+.term-line label i{font-style:normal;font-weight:600;color:var(--app)}
+.term-more{flex:none;border:0;background:none;color:#7c8798;font-size:12px;text-decoration:underline;padding:2px 0 2px 6px;min-height:28px}
+.small-print{font-size:11px;line-height:1.5;color:#6b7686;background:#f4f6f9;border-radius:6px;padding:8px;margin:6px 0 0 28px;max-height:76px;overflow-y:auto}
+.small-print mark{background:none;color:inherit}
+.small-print.lit mark{background:#ffd9d4;color:#b3261a}
+.btn-app{min-height:54px;border:0;border-radius:12px;background:var(--app);color:#fff;font-weight:600;font-size:17px}
+.btn-link{border:0;background:none;color:#7c8798;font-size:13px;text-decoration:underline;min-height:36px}
+.app-err{font-size:13px;color:#b3261a;margin:0}
+.pressure{font-size:12px;color:#b3261a;margin:0;min-height:18px;text-align:center}
+
+/* Flow */
+.flow{display:flex;flex-direction:column;align-items:center;gap:8px;border:1px solid var(--rule);border-radius:12px;padding:14px 12px}
+.flow-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.flow-chips span{background:var(--paper);color:var(--ink);font-size:13px;border-radius:4px;padding:3px 8px}
+.flow-arrow{font-family:var(--f-mono);color:var(--amber);line-height:1}
+.flow-gate{font-family:var(--f-display);font-size:22px;border:2px solid var(--amber);color:var(--amber);border-radius:6px;padding:4px 14px 2px}
+.flow-out{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.flow-out span{font-size:12px;border:1px solid var(--rule);border-radius:4px;padding:3px 8px}
+.stat{font-family:var(--f-mono);font-size:14px;color:var(--amber);margin:0}
+
+/* Street */
+.street{display:flex;align-items:flex-end;gap:10px;height:200px;border-bottom:2px solid var(--rule);padding:0 2px}
+.bld{--win:#24344a;flex:1;display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch;padding:0;border:1px solid var(--rule);border-bottom:0;border-radius:6px 6px 0 0;
+  background-color:var(--night-2);
+  background-image:repeating-linear-gradient(0deg,transparent 0 14px,var(--night-2) 14px 24px),repeating-linear-gradient(90deg,var(--win) 0 12px,var(--night-2) 12px 20px);
+  background-position:8px 44px;background-origin:content-box}
+.bld:nth-child(1){height:150px}
+.bld:nth-child(2){height:196px}
+.bld:nth-child(3){height:172px}
+.bld-sign{background:var(--night);border-bottom:1px solid var(--rule);font-size:12px;font-weight:600;line-height:1.3;padding:7px 4px;border-radius:5px 5px 0 0;min-height:44px;display:flex;align-items:center;justify-content:center;text-align:center}
+.bld.seen{--win:var(--amber)}
+.bld[aria-pressed="true"]{border-color:var(--paper)}
+.bld[aria-pressed="true"] .bld-sign{background:var(--paper);color:var(--ink)}
+.panel{background:var(--night-2);border:1px solid var(--rule);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.panel h3{font-family:var(--f-display);font-weight:400;font-size:22px;line-height:1.25;margin:0}
+.panel p{margin:0;font-size:15px}
+.eg{font-family:var(--f-mono);font-size:11px;color:var(--mute);margin:0}
+
+.ads{display:flex;flex-direction:column;gap:8px;list-style:none;margin:0;padding:0}
+.ads li{background:#fff;color:var(--ink);border-radius:8px;padding:8px 10px;font-size:14px;line-height:1.4}
+.ads small{display:block;font-family:var(--f-mono);font-size:11px;color:#6b7686}
+
+.mix{display:flex;flex-wrap:wrap;gap:6px}
+.mix button{min-height:40px;border:1px solid var(--rule);background:var(--night);border-radius:20px;padding:6px 14px;font-size:14px}
+.mix button[aria-pressed="true"]{background:var(--paper);color:var(--ink);border-color:var(--paper)}
+.grade{display:flex;align-items:center;gap:14px}
+.grade-letter{font-family:var(--f-display);font-size:60px;line-height:1;width:64px;text-align:center;border:3px solid currentColor;border-radius:8px;padding-top:6px}
+.grade-letter[data-g="A"]{color:var(--paper)}
+.grade-letter[data-g="B"],.grade-letter[data-g="C"]{color:var(--amber)}
+.grade-letter[data-g="D"]{color:var(--alarm)}
+.grade dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:14px;flex:1}
+.grade dt{color:var(--mute)}
+.grade dd{margin:0;font-weight:500}
+.grade dd.bad{color:var(--alarm)}
+
+.optout{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--night);border:1px solid var(--rule);border-radius:10px;padding:12px}
+.optout span{font-size:15px;font-weight:500}
+.switch{flex:none;width:58px;height:34px;border-radius:17px;border:0;background:var(--rule);position:relative;transition:background .2s}
+.switch::after{content:"";position:absolute;left:4px;top:4px;width:26px;height:26px;border-radius:50%;background:var(--paper);transition:transform .2s}
+.switch[aria-checked="true"]{background:var(--app)}
+.switch[aria-checked="true"]::after{transform:translateX(24px)}
+.switch.snap{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+
+.pool{display:flex;flex-direction:column;gap:8px;background:var(--night);border:1px solid var(--rule);border-radius:10px;padding:12px}
+.pool-n{font-size:14px;margin:0;display:flex;justify-content:space-between;align-items:baseline}
+.pool-n b{font-family:var(--f-mono);font-weight:500;font-size:20px;color:var(--amber)}
+.meter{height:8px;background:var(--rule);border-radius:4px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--amber);transition:width .4s}
+.ref-line{font-size:12px;color:var(--mute);margin:0}
+
+.stage{position:relative}
+.info{position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;width:24px;height:24px;margin-left:6px;vertical-align:middle;border-radius:50%;border:1.5px solid currentColor;background:none;padding:0;font:italic 600 14px/1 Georgia,'Times New Roman',serif;opacity:.75}
+.info::after{content:"";position:absolute;inset:-10px}
+.info[aria-expanded="true"]{opacity:1;background:var(--amber);border-color:var(--amber);color:var(--ink)}
+.tip{position:absolute;left:20px;right:20px;z-index:5;background:var(--paper);color:var(--ink);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.6;box-shadow:0 10px 30px rgba(0,0,0,.55)}
+.tip p{margin:0 0 6px}
+.tip p:last-child{margin:0}
+.tip .eg-t{color:#5a6676}
+.flow{position:relative}
+.flow>.info{position:absolute;top:8px;right:8px}
+.flow-lab{font-family:var(--f-mono);font-size:11px;color:var(--mute);word-spacing:-.25em}
+.flow .flow-out,.flow .flow-chips{padding:0 26px}
+
+.dock{display:flex;justify-content:space-around;gap:8px;background:var(--night-2);border:1px solid var(--rule);border-radius:18px;padding:14px 8px 10px}
+.icon{display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:0;padding:4px;min-width:84px;font-size:12px;font-weight:500;color:var(--mute)}
+.icon i{position:relative;width:60px;height:60px;border-radius:16px;background:var(--brand);display:flex;align-items:center;justify-content:center}
+.icon svg{width:30px;height:30px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.icon[aria-pressed="true"]{color:var(--paper)}
+.icon[aria-pressed="true"] i{outline:2px solid var(--paper);outline-offset:3px}
+.icon.seen i::after{content:"";position:absolute;right:-4px;top:-4px;width:12px;height:12px;border-radius:50%;background:var(--amber);border:2px solid var(--night-2)}
+.app .app-bar{background:var(--brand,var(--app))}
+.app .btn-app{background:var(--brand,var(--app))}
+.app-sub{font-size:13px;color:#6b7686;margin:-6px 0 0}
+.stats{display:flex;gap:6px}
+.stats span{flex:1;background:#f0f3f8;border-radius:8px;padding:6px 4px;text-align:center;font-size:12px;line-height:1.3;color:#5a6676}
+.stats b{display:block;font-size:17px;font-weight:600;color:var(--brand)}
+.app .ads li{background:#f4f6f9}
+.app .ads small{font-family:var(--f-ui);font-weight:600;color:var(--brand);word-spacing:0}
+.app .mix button{background:#fff;color:var(--ink);border-color:#c9cfd8}
+.app .mix button[aria-pressed="true"]{background:var(--brand);color:#fff;border-color:var(--brand)}
+.app .grade dt{color:#6b7686}
+.app .grade-letter[data-g="A"]{color:var(--ink)}
+.app .grade-letter[data-g="B"],.app .grade-letter[data-g="C"]{color:#b97a00}
+.app .grade-letter[data-g="D"],.app .grade dd.bad{color:#d0321f}
+.card{background:#f4f6f9;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.card h4{margin:0;font-size:14px;font-weight:600}
+.app .pool-n b{color:var(--brand)}
+.app .meter{background:#dfe3ea}
+.app .meter i{background:var(--brand)}
+.below{display:flex;flex-direction:column;gap:12px}
+.lead{font-size:15px;line-height:1.6;margin:0}
+.recs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:14px}
+.recs li{padding-left:20px;position:relative}
+.recs li::before{content:"";position:absolute;left:2px;top:7px;width:10px;height:6px;border-left:2px solid var(--brand);border-bottom:2px solid var(--brand);transform:rotate(-45deg)}
+.recs li.none{padding-left:0;color:#6b7686}
+.recs li.none::before{display:none}
+.app .grade dl{align-items:center}
+.app .grade dd{font-size:16px;font-weight:600}
+
+/* Hack */
+.alert{border:2px solid var(--alarm);border-radius:12px;padding:12px 14px;font-size:15px;line-height:1.55}
+.alert-head{font-family:var(--f-mono);font-size:12px;color:var(--alarm);display:flex;justify-content:space-between;margin-bottom:4px}
+.leaks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.leaks li{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--night-2);border:1px solid var(--rule);border-radius:10px;padding:8px 10px 8px 14px;min-height:56px}
+.leaks span{font-size:15px}
+.leaks .res{font-family:var(--f-mono);font-size:13px;text-align:right}
+.leaks .ok{color:#7fd4a3}
+.leaks .no{color:var(--alarm)}
+.leaks li.shake{animation:shake .3s}
+
+.kin{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.kin li{display:grid;grid-template-columns:1fr 84px 64px;align-items:center;gap:10px;font-size:14px}
+.kin b{font-family:var(--f-mono);font-weight:500;text-align:right;color:var(--amber);font-variant-numeric:tabular-nums}
+.kin li.src b{color:var(--alarm)}
+.kin li.src .meter i{background:var(--alarm)}
+
+/* Verdict */
+.q{background:var(--paper);color:var(--ink);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.q-n{font-family:var(--f-mono);font-size:12px;color:#5a6676;margin:0}
+.q-t{font-family:var(--f-narr);font-weight:700;font-size:19px;line-height:1.5;margin:0}
+.q .row{flex-direction:row}
+.q .btn{flex:1;background:#fff;color:var(--ink);border-color:#c9cfd8}
+.q .btn.picked,.q .btn.picked[disabled]{background:var(--ink);color:var(--paper);border-color:var(--ink);opacity:1}
+/* mono face has a wide space; tighten it where the text is mostly Korean */
+.chip,.eyebrow,.hud-count,.notif-head,.dead,.eg,.stat,.flow-arrow,.alert-head,.leaks .res,.ads small,.q-n,.q-a .lab,.q-a .ref{word-spacing:-.25em}
+.q-a{border-top:2px solid var(--ink);padding-top:10px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.q-a p{margin:0}
+.q-a .gov{font-size:16px;font-weight:600;color:#b3261a}
+.q-a .lab{font-family:var(--f-mono);font-size:11px;color:#5a6676;display:block}
+.q-a .ref{font-family:var(--f-mono);font-size:11px;color:#8792a2}
+
+/* End */
+.result{background:var(--paper);color:var(--ink);border-radius:4px;padding:16px;font-size:14px}
+.result h3{margin:0 0 8px;font-size:14px;font-weight:600;border-bottom:2px solid var(--ink);padding-bottom:6px;display:flex;justify-content:space-between}
+.result h3 span{font-family:var(--f-mono);font-weight:400}
+.result dl{margin:0;display:grid;grid-template-columns:1fr auto;gap:6px 12px}
+.result dt{color:#5a6676}
+.result dd{margin:0;font-family:var(--f-mono);font-weight:500;text-align:right;font-variant-numeric:tabular-nums}
+.result dd.bad{color:#b3261a}
+.big{font-family:var(--f-display);font-weight:400;font-size:30px;line-height:1.25;margin:0;text-wrap:balance}
+.big.zero{color:var(--alarm)}
+.tell{border:1px solid var(--rule);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.tell h3{margin:0;font-size:15px;font-weight:600}
+.tell-text{margin:0;background:var(--night-2);border-radius:8px;padding:10px 12px;font-size:14px;line-height:1.6;white-space:pre-line;user-select:text;-webkit-user-select:text}
+.cta{background:var(--alarm);border-color:var(--alarm);color:#1a0906;font-size:17px;text-decoration:none;display:flex;align-items:center;justify-content:center}
+
+@media (prefers-reduced-motion:reduce){
+  .enter,.stamp.enter,.tape.run,.switch.snap,.leaks li.shake{animation:none}
+  .switch,.switch::after,.meter i{transition:none}
+}
+</style>
+</head>
+<body>
+<div class="stage is-title" id="stage">
+  <header class="hud">
+    <div class="hud-ch" id="hudCh">1장</div>
+    <ol class="pips" id="pips" aria-hidden="true"><li></li><li></li><li></li><li></li><li></li></ol>
+    <div class="hud-count" id="hudCount" aria-live="polite">내 기록을 가진 곳 <b>0곳</b></div>
+  </header>
+  <main class="scene" id="scene"></main>
+</div>
+
+<script>
+(function(){
+  // 서명 페이지 주소를 넣으면 마지막 버튼이 그곳으로 연결됩니다.
+  var SIGN_URL = 'https://forms.gle/fqrBiTC1ryw9tyx89';
+  // 공유 문구에 들어가는 체험 링크입니다.
+  var SHARE_URL = 'https://claude.ai/artifact/3nABavWu7PykmC6r1fvvmL';
+
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var stage = document.getElementById('stage');
+  var scene = document.getElementById('scene');
+  var timers = [];
+  var S = { i:0, who:null, consentMs:null, readTerms:false, agreedAll:null, optional:null, holders:0, leaked:false, votes:[] };
+
+  function h(tag, attrs){
+    var e = document.createElement(tag), k, v;
+    if (attrs) for (k in attrs){
+      v = attrs[k];
+      if (v == null || v === false) continue;
+      if (k === 'class') e.className = v;
+      else if (k === 'html') e.innerHTML = v;
+      else if (k.slice(0,2) === 'on') e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v === true ? '' : v);
+    }
+    for (var i = 2; i < arguments.length; i++) put(e, arguments[i]);
+    return e;
+  }
+  function put(e, c){
+    if (c == null || c === false) return;
+    if (Array.isArray(c)) { c.forEach(function(x){ put(e, x); }); return; }
+    e.append(c.nodeType ? c : document.createTextNode(String(c)));
+  }
+  function add(root){
+    var last;
+    for (var i = 1; i < arguments.length; i++){
+      last = arguments[i]; if (!last) continue;
+      last.classList.add('enter'); root.append(last);
+    }
+    var el = last;
+    if (el) requestAnimationFrame(function(){ el.scrollIntoView({ block:'nearest', behavior: reduce ? 'auto' : 'smooth' }); });
+    return last;
+  }
+  function chip(t){ return h('div', {class:'chip'}, t); }
+  function narr(html){ return h('p', {class:'narr', html:html}); }
+  function note(t){ return h('p', {class:'note'}, t); }
+  function fact(html){ return h('p', {class:'fact', html:html}); }
+  function step(root, label, fn, cls){
+    var row = h('div', {class:'row'});
+    row.append(h('button', {class:'btn ' + (cls || 'primary'), type:'button', onclick:function(){ row.remove(); fn(); }}, label));
+    add(root, row);
+    return row;
+  }
+  var tipEl = null, tipBtn = null;
+  function closeTip(){
+    if (tipEl){ tipEl.remove(); tipEl = null; }
+    if (tipBtn){ tipBtn.setAttribute('aria-expanded', 'false'); tipBtn = null; }
+  }
+  function info(html){
+    var b = h('button', {class:'info', type:'button', 'aria-label':'자세한 설명 보기', 'aria-expanded':'false'}, 'i');
+    b.addEventListener('click', function(e){
+      e.stopPropagation();
+      if (tipBtn === b){ closeTip(); return; }
+      closeTip();
+      tipEl = h('div', {class:'tip', role:'tooltip', html:html});
+      stage.append(tipEl);
+      var sr = stage.getBoundingClientRect(), br = b.getBoundingClientRect();
+      var top = br.bottom - sr.top + 8, th = tipEl.offsetHeight;
+      if (top + th > sr.height - 12) top = Math.max(8, br.top - sr.top - th - 8);
+      tipEl.style.top = top + 'px';
+      tipBtn = b; b.setAttribute('aria-expanded', 'true');
+    });
+    return b;
+  }
+  function factI(html, tip){ var f = fact(html); f.append(' ', info(tip)); return f; }
+  document.addEventListener('click', closeTip);
+  scene.addEventListener('scroll', closeTip, {passive:true});
+  function later(fn, ms){ var t = setTimeout(fn, reduce ? 0 : ms); timers.push(t); return t; }
+
+  function hud(ch, label){
+    document.getElementById('hudCh').textContent = label;
+    var pips = document.getElementById('pips').children;
+    for (var i = 0; i < pips.length; i++) pips[i].className = i < ch ? 'on' : '';
+    drawHolders();
+  }
+  function drawHolders(){
+    var el = document.getElementById('hudCount');
+    el.className = 'hud-count' + (S.leaked ? ' leak' : '');
+    el.innerHTML = S.leaked ? '내 기록 <b>유출됨</b>' : '내 기록을 가진 곳 <b>' + S.holders + '곳</b>';
+  }
+  function holders(n){ if (n > S.holders) { S.holders = n; drawHolders(); } }
+
+  function go(i){
+    timers.forEach(function(t){ clearTimeout(t); clearInterval(t); }); timers = [];
+    closeTip();
+    S.i = i;
+    scene.innerHTML = '';
+    scene.scrollTop = 0;
+    stage.classList.toggle('is-title', i === 0);
+    scenes[i](scene);
+  }
+  function next(){ go(S.i + 1); }
+
+  /* ---------- 세 사람의 설정 ---------- */
+  var TERM2 = '회원에게 유용한 혜택을 안내하기 위하여 수집한 건강정보를 <mark>제휴사(보험, 금융, 제약, 건강기능식품 등)의 상품 안내와 맞춤 광고</mark>에 이용합니다. 보유 기간은 회원 탈퇴 시까지입니다.';
+  var PIPA_NOTE = '<p>동의 없이 쓰거나 동의받은 목적을 벗어나 쓰면 개인정보 보호법으로 처벌할 수 있습니다(제18조, 제71조). 그러나 약관으로 폭넓은 동의를 받아 둔 경우에는 이 조항으로 문제 삼기 어렵습니다. 동의가 있어도 차별에 쓰지 못하게 막는 조항이 정부대안 제4조인데, 여기에는 제재가 없습니다.</p>';
+  var GATE_NONE2 = '그리고 동의하지 않은 당신의 기록에도 나가는 길이 하나 남아 있습니다. <strong>세 번째 화면</strong>에서 확인합니다.';
+  var GATE_TIP = '<p>전송 요구를 받으면 병원과 약국은 물론 건강보험공단, 심사평가원 같은 공공기관도 기록을 보내야 합니다(제19조제2항, 제4항). 유전자검사 기록도 예외가 아닙니다(제19조제2항제3호).</p><p>대상은 요구하는 시점에 기관이 가지고 있는 기록입니다. 병원의 진료기록부 보존기간은 10년이지만(의료법 시행규칙 제15조), 건강보험공단에는 2002년 이후의 진료 내역과 건강검진 결과가 쌓여 있습니다.</p><p>구체적인 범위는 복지부 장관이 고시하고, 정기 전송과 대리인을 통한 요구도 할 수 있습니다(제19조제4항~제6항).</p>';
+  var P = {
+    job: {
+      pick:['스무 살, 취업준비생', '최종 면접에서 또 떨어졌습니다'],
+      hud1:'1장 · 불합격',
+      ch1:{
+        chip:'법 시행 10년 뒤 · 가상 상황',
+        narr:'당신은 스무 살, 첫 직장을 구하고 있습니다. 최종 면접까지 본 회사에서 결과가 왔습니다. 최종에서 떨어진 것이 벌써 네 번째입니다.',
+        time:'16:05', date:'채용 결과 알림',
+        notif:['○○ 채용팀', '지금', '귀하의 역량을 높이 평가하였으나, 아쉽게도 이번 채용에서는 함께하지 못하게 되었습니다.'],
+        steps:[
+          { btn:'불합격 사유 문의하기', label:'회사 답변', html:'채용 평가 기준과 결과는 공개하지 않습니다.' },
+          { btn:'회사가 가진 내 정보 열람 청구하기', label:'열람 청구 결과 · 회사', html:'보유 정보는 이력서, 면접 평가표, 그리고 <b>외부 업체가 제공한 적합성 리포트</b>입니다.' },
+          { btn:'리포트를 만든 업체에 열람 청구하기', label:'열람 청구 결과 · 평가 업체', html:'리포트에는 건강 위험 등급이 들어 있습니다. 산출에 쓴 자료는 <b>20년치 진료·처방 기록, 영유아 건강검진 결과, 가족력</b>이고, 관리전문기관에서 받았습니다.', stamp:'건강 위험 등급' },
+          { btn:'전송 동의 내역 조회하기', label:'동의 내역', html:'정기 전송에 처음 동의한 날은 <b>10년 전</b>입니다. 동의한 사람은 본인이 아니라 <b>법정대리인</b>입니다.' }
+        ],
+        last:'열 살 때의 일입니다. 나는 한 번도 동의한 적이 없습니다.',
+        deads:[
+          ['회사에 이 등급 때문인지 묻기', '채용 평가 기준과 결과는 공개하지 않습니다.'],
+          ['법 위반으로 신고하기', '인사 결정에 의료정보를 쓰는 것은 법이 금지한 활용입니다. 그러나 등급이 탈락 사유였다는 증거가 없고, 이 법에는 금지를 어겼을 때의 제재 조항이 없습니다.']
+        ],
+        next:'10년 전 그날로 돌아가기'
+      },
+      rewind:{
+        labels:['시행 10년 뒤','시행 8년 뒤','시행 6년 뒤','시행 4년 뒤','시행 2년 뒤','시행 첫해'],
+        narr:'기록이 처음 넘어간 곳은 10년 전의 소아과 로비입니다. 그날 동의 버튼 앞에 서 있던 보호자의 자리에 서 봅니다.',
+        btn:'그날 아침, 소아과 로비'
+      },
+      ch2:{
+        chip:'법 시행 첫해 · 소아과 로비',
+        narr:'이제 당신은 열 살 아이의 보호자입니다. 아이 체온 39.2℃. 소아과에 왔지만 대기실은 이미 가득합니다. 앱으로 예약한 사람들이 먼저 들어가고, 현장 접수는 언제 차례가 올지 알 수 없습니다.',
+        install:'예약 앱 설치하기', app:'얼른예약',
+        venue:'○○소아청소년과', prefix:'현재 대기 ', bold0:'11명',
+        tick:function(n){ return { bold:(11 + n) + '명', msg:'그사이 앱 예약자 ' + n + '명이 먼저 들어갔습니다.' }; },
+        title:'예약 전 약관에 동의해 주세요',
+        term1:'서비스 제공을 위해 이름, 연락처, 예약 내역을 수집합니다. 수집한 정보는 관련 법령에 따라 보관합니다.',
+        tag3:'[추천]', label3:'전 생애 진료·처방 기록 자동 모아보기 (마이데이터 연동)',
+        term3:'회원의 전송 요구에 따라 의료기관, 약국, 건강보험공단, 건강보험심사평가원, 유전자검사기관 등이 보유한 진료, 처방·조제, 건강검진, 유전자검사 기록을 <mark>관리전문기관이 정기적으로 전송</mark>받습니다. 회원이 법정대리인으로 동의한 <mark>자녀의 기록을 포함</mark>하며, 전송받은 정보는 <mark>제휴사에 제공</mark>될 수 있습니다.',
+        all:'전체 동의하고 예약하기', some:'선택한 항목만 동의하고 예약', err:'필수 항목에 동의해야 예약할 수 있습니다.',
+        done:function(n){ return '예약 완료 · 대기 ' + (12 + n) + '번째'; }
+      },
+      gate:{
+        all:'편리함이라는 이름 뒤에서, 나와 아이의 병원 기록을 정기적으로 받아 가는 <strong>관리전문기관</strong>의 빗장이 열렸습니다. 아이의 동의는 내가 대신했습니다.',
+        none:'선택 항목을 모두 껐습니다. 앱으로 가는 정기 전송은 막았습니다. 하지만 열이 나는 아이를 데리고 기다리는 대기실에서는 전체 동의를 누르기 쉽습니다. 이 체험은 그 경우를 따라갑니다.',
+        chips:['아이의 진료기록', '처방·조제 내역', '건강검진 결과', '유전자검사 기록', '내 기록'],
+        tip:GATE_TIP
+      },
+      platform:{
+        lead:'방금 설치한 예약 앱의 첫 화면입니다. 동의한 뒤로 이런 추천이 뜹니다.', name:'얼른예약',
+        stats:[['12곳','병원 기록'],['7곳','약국 기록'],['4회','건강검진']], heading:'보호자님께 추천해요',
+        ads:[['소아청소년과 진료 · 고열','아이 해열제, 지금 주문하면 오늘 도착'],['아이 처방 이력','어린이 보험 가입 가능 여부 1분 조회'],['보호자 건강검진 결과','보호자 맞춤 건강기능식품 정기배송']]
+      },
+      insurer:{
+        lead:'보험사 심사 담당자의 화면입니다. 아이의 보험 가입 신청이 들어왔습니다. 기록을 하나씩 불러와 보세요.',
+        stats:[['어린이보험','신청 상품'],['10세','피보험자']], recs:['아이 진료기록','처방 이력','가족력'], worst:'보험료 2배 · 일부 보장 제외'
+      },
+      model:'20세 · 진료 33건 · 처방 21건 · 가족력 있음',
+      leaks:['아이의 진료기록', '건강검진 결과'],
+      kin:{
+        intro:'아이의 유전정보가 넘어가거나 유출되면, 아무것도 하지 않은 가족의 질병 위험까지 추정할 수 있습니다.',
+        rows:[['아이','유출',100,true],['나와 배우자','약 50%',50],['아이의 형제자매','약 50%',50],['조부모','약 25%',25],['이모, 삼촌, 고모','약 25%',25],['사촌','약 12.5%',12.5]],
+        fact:'이 가족 가운데 <b>스스로 동의한 사람은 없습니다.</b> 유전정보는 이름을 지워도 사람과 혈연을 가리킵니다.',
+        whose:'아이와'
+      },
+      end:'내 아이의 진료기록'
+    },
+
+    home: {
+      pick:['마흔셋, 첫 내 집 마련', '가족을 위한 보험 가입이 거절됐습니다'],
+      hud1:'1장 · 거절',
+      ch1:{
+        chip:'법 시행 5년 뒤 · 가상 상황',
+        narr:'당신은 마흔셋, 30년 만기 대출로 첫 집을 마련했습니다. 내가 잘못돼도 가족이 빚을 떠안지 않도록, 대출 상환을 보장하는 보험에 가입하려 합니다. 심사 결과가 왔습니다.',
+        time:'12:40', date:'보험 심사 결과',
+        notif:['○○생명', '지금', '심사 결과 이번 보험 가입 신청은 받아들이기 어렵습니다. 양해 부탁드립니다.'],
+        steps:[
+          { btn:'거절 사유 문의하기', label:'보험사 답변', html:'가입 심사 기준에 맞지 않습니다. 세부 기준은 공개하지 않습니다.' },
+          { btn:'보험사가 가진 내 정보 열람 청구하기', label:'열람 청구 결과 · 보험사', html:'심사에는 가입 신청서 말고도 <b>외부 업체가 제공한 건강 위험 등급</b>이 쓰였습니다.' },
+          { btn:'등급을 만든 업체에 열람 청구하기', label:'열람 청구 결과 · 평가 업체', html:'산출에 쓴 자료는 <b>20년 전 진료 내역과 건강검진 결과</b>까지입니다. 병원뿐 아니라 건강보험공단과 심사평가원에 쌓여 있던 기록도 관리전문기관으로 넘어가 있었습니다.', stamp:'건강 위험 등급' },
+          { btn:'전송 동의 내역 조회하기', label:'동의 내역', html:'정기 전송에 처음 동의한 날은 <b>5년 전</b>입니다. 동의한 사람은 <b>본인</b>입니다.' }
+        ],
+        last:'가입 신청서가 물은 것은 최근 5년의 병력뿐이었습니다. 그런데 등급은 20년 전 기록까지 보고 매겨졌습니다.',
+        deads:[
+          ['보험사에 이 등급 때문인지 묻기', '가입 심사 기준은 공개하지 않습니다.'],
+          ['법 위반으로 신고하기', '보험 가입 거절에 이 법으로 넘겨받은 의료정보를 쓰는 것은 금지된 활용입니다. 그러나 등급 때문이라는 증거가 없고, 이 법에는 금지를 어겼을 때의 제재 조항이 없습니다.']
+        ],
+        next:'5년 전 그날로 돌아가기'
+      },
+      rewind:{
+        labels:['시행 5년 뒤','시행 4년 뒤','시행 3년 뒤','시행 2년 뒤','시행 첫해'],
+        narr:'기록이 처음 넘어간 것은 5년 전, 비대면진료 앱을 처음 쓰던 날입니다.',
+        btn:'그날 점심, 회사 휴게실'
+      },
+      ch2:{
+        chip:'법 시행 첫해 · 회사 휴게실',
+        narr:'사흘째 기침이 멎지 않습니다. 병원에 갈 시간은 없고, 점심시간은 20분 남았습니다. 동료가 알려 준 비대면진료 앱을 엽니다.',
+        install:'비대면진료 앱 설치하기', app:'바로진료',
+        venue:'내과 · 비대면 진료', prefix:'남은 점심시간 ', bold0:'20분',
+        tick:function(n){ return { bold:Math.max(2, 20 - 3 * n) + '분', msg:'진료 대기가 ' + (2 + n) + '명으로 늘었습니다.' }; },
+        title:'진료 전 약관에 동의해 주세요',
+        term1:'서비스 제공을 위해 이름, 연락처, 진료 내역을 수집합니다. 수집한 정보는 관련 법령에 따라 보관합니다.',
+        tag3:'[추천]', label3:'전 생애 진료·처방 기록 자동 모아보기 (마이데이터 연동)',
+        term3:'회원의 전송 요구에 따라 의료기관, 약국, 건강보험공단, 건강보험심사평가원, 유전자검사기관 등이 보유한 진료, 처방·조제, 건강검진, 유전자검사 기록을 <mark>관리전문기관이 정기적으로 전송</mark>받습니다. <mark>각 기관에 쌓여 있는 과거의 기록을 모두 포함</mark>하며, 전송받은 정보는 <mark>제휴사에 제공</mark>될 수 있습니다.',
+        all:'전체 동의하고 진료받기', some:'선택한 항목만 동의하고 진료받기', err:'필수 항목에 동의해야 진료받을 수 있습니다.',
+        done:function(){ return '진료 접수 완료'; }
+      },
+      gate:{
+        all:'편리함이라는 이름 뒤에서, 내 병원 기록을 정기적으로 받아 가는 <strong>관리전문기관</strong>의 빗장이 열렸습니다. 건강보험공단과 심사평가원에 쌓여 있던 지난 기록까지 한꺼번에 넘어갑니다.',
+        none:'선택 항목을 모두 껐습니다. 앱으로 가는 정기 전송은 막았습니다. 하지만 시간에 쫓기는 점심시간에는 전체 동의를 누르기 쉽습니다. 이 체험은 그 경우를 따라갑니다.',
+        chips:['내 진료기록', '처방·조제 내역', '건강검진 결과', '유전자검사 기록'],
+        tip:GATE_TIP
+      },
+      platform:{
+        lead:'방금 설치한 비대면진료 앱의 첫 화면입니다. 동의한 뒤로 이런 추천이 뜹니다.', name:'바로진료',
+        stats:[['9곳','병원 기록'],['6곳','약국 기록'],['5회','건강검진']], heading:'회원님께 추천해요',
+        ads:[['내과 진료 · 기침','기침약 정기배송, 첫 달 무료'],['처방 이력','간편심사 보험, 가입 가능 여부 1분 조회'],['건강검진 결과','40대 맞춤 건강기능식품 정기배송']]
+      },
+      insurer:{
+        lead:'보험사 심사 담당자의 화면입니다. 당신의 보험 가입 신청이 들어왔습니다. 기록을 하나씩 불러와 보세요.',
+        stats:[['정기보험','신청 상품'],['43세','피보험자']], recs:['최근 5년 진료기록','5년보다 오래된 기록','가족력'], worst:'보험료 2배 · 일부 보장 제외'
+      },
+      model:'43세 · 진료 58건 · 처방 37건 · 가족력 있음',
+      leaks:['내 진료기록', '건강검진 결과'],
+      kin:{
+        intro:'내 유전정보가 넘어가거나 유출되면, 아무것도 하지 않은 가족의 질병 위험까지 추정할 수 있습니다.',
+        rows:[['나','유출',100,true],['자녀','약 50%',50],['부모, 형제자매','약 50%',50],['조카','약 25%',25],['사촌','약 12.5%',12.5]],
+        fact:'이 가족 가운데 <b>동의한 사람은 나 하나뿐입니다.</b> 유전정보는 이름을 지워도 사람과 혈연을 가리킵니다.',
+        whose:'나와'
+      },
+      end:'내 진료기록'
+    },
+
+    silver: {
+      pick:['일흔둘, 실버타운 입주 준비', '입주 심사에서 탈락했습니다'],
+      hud1:'1장 · 거절',
+      ch1:{
+        chip:'법 시행 5년 뒤 · 가상 상황',
+        narr:'당신은 일흔둘, 혼자 지내던 집을 정리하고 실버타운에 들어가려 합니다. 건강진단서는 이상 없음으로 냈습니다. 입주 심사 결과가 왔습니다.',
+        time:'10:15', date:'입주 심사 결과',
+        notif:['○○시니어타운', '지금', '입주 심사 결과 이번에는 모시기 어렵게 되었습니다. 양해 부탁드립니다.'],
+        steps:[
+          { btn:'탈락 사유 문의하기', label:'운영사 답변', html:'입주 심사 기준은 공개하지 않습니다.' },
+          { btn:'운영사가 가진 내 정보 열람 청구하기', label:'열람 청구 결과 · 운영사', html:'보유 정보는 신청서, 건강진단서, 그리고 <b>외부 업체가 제공한 돌봄 위험 리포트</b>입니다.' },
+          { btn:'리포트를 만든 업체에 열람 청구하기', label:'열람 청구 결과 · 평가 업체', html:'리포트에는 앞으로의 돌봄 위험 등급이 들어 있습니다. 산출에 쓴 자료는 <b>5년치 심박·수면·걸음 기록과, 건강보험공단에 쌓여 있던 진료 내역·건강검진 결과</b>이고, 관리전문기관에서 받았습니다.', stamp:'돌봄 위험 등급' },
+          { btn:'전송 동의 내역 조회하기', label:'동의 내역', html:'정기 전송에 처음 동의한 날은 <b>5년 전</b>입니다. 동의한 사람은 <b>본인</b>입니다.' }
+        ],
+        last:'지금의 건강은 문제가 없습니다. 등급은 앞으로 아플 가능성을 두고 매겨졌습니다. 손목 기기를 사던 날, 할인을 받으려고 무언가에 동의했던 기억만 납니다.',
+        deads:[
+          ['운영사에 이 등급 때문인지 묻기', '입주 심사 기준은 공개하지 않습니다.'],
+          ['법 위반으로 신고하기', '서비스 거절에 이 법으로 넘겨받은 의료정보를 쓰는 것은 금지된 활용입니다. 그러나 등급 때문이라는 증거가 없고, 이 법에는 금지를 어겼을 때의 제재 조항이 없습니다.']
+        ],
+        next:'5년 전 그날로 돌아가기'
+      },
+      rewind:{
+        labels:['시행 5년 뒤','시행 4년 뒤','시행 3년 뒤','시행 2년 뒤','시행 첫해'],
+        narr:'기록이 처음 넘어간 것은 5년 전, 건강 손목 기기를 사던 날입니다.',
+        btn:'그날 오후, 매장 계산대'
+      },
+      ch2:{
+        chip:'법 시행 첫해 · 매장 계산대',
+        narr:'혈압과 심박을 재 주는 손목 기기를 사러 왔습니다. 자녀가 권한 물건입니다. 직원이 말합니다. “앱에서 병원 기록 연동에 동의하시면 30% 할인해 드려요.”',
+        install:'기기 앱 설치하기', app:'늘봄워치',
+        venue:'건강 손목 기기', prefix:'연동 할인 ', bold0:'30%',
+        tick:function(n){ return { msg:'뒤에 ' + n + '명이 계산을 기다리고 있습니다.' }; },
+        title:'할인 전 약관에 동의해 주세요',
+        term1:'서비스 제공을 위해 이름, 연락처, 기기 측정 기록을 수집합니다. 수집한 정보는 관련 법령에 따라 보관합니다.',
+        tag3:'[할인]', label3:'병원·약국 기록 연동 (마이데이터 연동 · 30% 할인)',
+        term3:'회원의 전송 요구에 따라 의료기관, 약국, 건강보험공단, 건강보험심사평가원, 유전자검사기관 등이 보유한 진료, 처방·조제, 건강검진, 유전자검사 기록을 <mark>관리전문기관이 정기적으로 전송</mark>받습니다. 기기가 측정한 <mark>심박, 수면, 걸음 기록과 결합</mark>하며, 전송받은 정보는 <mark>제휴사에 제공</mark>될 수 있습니다.',
+        all:'전체 동의하고 할인받기', some:'선택한 항목만 동의하고 결제', err:'필수 항목에 동의해야 결제할 수 있습니다.',
+        done:function(n, linked){ return linked ? '결제 완료 · 30% 할인 적용' : '결제 완료 · 할인 미적용'; }
+      },
+      gate:{
+        all:'할인이라는 이름 뒤에서, 내 병원 기록을 정기적으로 받아 가는 <strong>관리전문기관</strong>의 빗장이 열렸습니다. 손목 기기가 잰 기록과 합쳐집니다.',
+        none:'선택 항목을 모두 껐습니다. 정기 전송은 막았고, 할인은 받지 못했습니다. 하지만 계산대 앞에서 30% 할인을 포기하기는 쉽지 않습니다. 이 체험은 전체 동의를 누른 경우를 따라갑니다.',
+        chips:['내 진료기록', '처방·조제 내역', '건강검진 결과', '유전자검사 기록', '심박·수면·걸음 기록'],
+        tip:GATE_TIP + '<p>전송 요구를 강요하거나 부당하게 유도하는 행위는 금지되어 있습니다. 그러나 어겨도 지정 취소가 가능할 뿐 벌칙은 없습니다(제20조제4항·제7항, 제36조).</p>'
+      },
+      platform:{
+        lead:'방금 설치한 기기 앱의 첫 화면입니다. 동의한 뒤로 이런 추천이 뜹니다.', name:'늘봄워치',
+        stats:[['14곳','병원 기록'],['8곳','약국 기록'],['24시간','심박·수면']], heading:'회원님께 추천해요',
+        ads:[['수면 기록 · 자주 깸','숙면 영양제 정기배송, 첫 달 무료'],['처방 이력 · 혈압약','시니어 간편보험, 가입 가능 여부 1분 조회'],['걸음 기록 · 보행 속도 감소','낙상 예방 보조기구 특가']]
+      },
+      insurer:{
+        lead:'보험사 심사 담당자의 화면입니다. 당신의 보험 가입 신청이 들어왔습니다. 기록을 하나씩 불러와 보세요.',
+        stats:[['간병보험','신청 상품'],['67세','피보험자']], recs:['진료·처방 기록','심박·수면 기록','가족력'], worst:'가입 거절'
+      },
+      model:'72세 · 진료 96건 · 심박·수면 5년치 · 가족력 있음',
+      leaks:['내 진료기록', '심박·수면 기록'],
+      kin:{
+        intro:'내 유전정보가 넘어가거나 유출되면, 아무것도 하지 않은 가족의 질병 위험까지 추정할 수 있습니다.',
+        rows:[['나','유출',100,true],['자녀','약 50%',50],['형제자매','약 50%',50],['손주','약 25%',25],['조카','약 25%',25]],
+        fact:'이 가족 가운데 <b>동의한 사람은 나 하나뿐입니다.</b> 유전정보는 이름을 지워도 사람과 혈연을 가리킵니다.',
+        whose:'나와'
+      },
+      end:'내 건강기록'
+    }
+  };
+  function who(){ return P[S.who] || P.job; }
+
+  /* ---------- 0. 타이틀 ---------- */
+  function sTitle(r){
+    var bar = function(w){ return h('span', {class:'bar', style:'width:' + w + 'px'}); };
+    var picks = ['job', 'home', 'silver'].map(function(k){
+      return h('button', {class:'who', type:'button', onclick:function(){ S.who = k; next(); }},
+        h('b', null, P[k].pick[0]), h('span', null, P[k].pick[1]));
+    });
+    r.append(h('section', {class:'title'},
+      h('p', {class:'eyebrow'}, '내 의료정보가 등급이 되어 돌아온다면 · 4분 가상 체험'),
+      h('div', {class:'record', 'aria-hidden':'true'},
+        h('div', {class:'record-head'}, h('span', null, '진료기록 사본'), h('span', null, 'No. 0012')),
+        h('dl', null,
+          h('dt', null, '성명'), h('dd', null, bar(58)),
+          h('dt', null, '진료과'), h('dd', null, bar(72)),
+          h('dt', null, '상병'), h('dd', null, bar(120)),
+          h('dt', null, '처방'), h('dd', null, bar(84), ' ', bar(40)),
+          h('dt', null, '가족력'), h('dd', null, bar(96))
+        ),
+        h('div', {class:'tag'}, '₩ ?')
+      ),
+      h('h1', {html:'당신의 의료정보는<br><em>안전</em>한가요?'}),
+      h('p', {class:'lede', html:'이유를 알 수 없는 <em>거절 통보</em> 한 통. 한 사람이 되어 그 이유를 추적해 보세요.'}),
+      h('div', {class:'row'}, picks),
+      h('p', {class:'note'}, '디지털헬스케어법 정부대안이 통과된 뒤를 가정한 이야기입니다. 등장하는 앱, 기관, 사건은 모두 가상이며, 법안 내용은 마지막 장에서 직접 확인합니다.')
+    ));
+  }
+
+  /* ---------- 1. 거절과 추적 ---------- */
+  function notif(app, when, text){
+    return h('div', {class:'notif'}, h('div', {class:'notif-head'}, h('span', null, app), h('span', null, when)), text);
+  }
+  function trace(label, html){
+    return h('div', {class:'trace'}, h('small', null, label), h('span', {html:html}));
+  }
+  function sCh1(r){
+    var c = who().ch1;
+    hud(1, who().hud1);
+    add(r, chip(c.chip));
+    add(r, narr(c.narr));
+    add(r, h('div', {class:'lock'}, h('div', {class:'lock-time'}, c.time), h('div', {class:'lock-date'}, c.date),
+      h('div', {class:'lock-list'}, notif(c.notif[0], c.notif[1], c.notif[2]))));
+    var i = 0;
+    function nextStep(){
+      if (i >= c.steps.length){ finish(); return; }
+      var st = c.steps[i];
+      step(r, st.btn, function(){
+        add(r, trace(st.label, st.html));
+        i++;
+        if (st.stamp) later(function(){ add(r, h('div', {class:'stamp'}, h('small', null, st.stamp), 'D')); nextStep(); }, 500);
+        else nextStep();
+      });
+    }
+    function finish(){
+      add(r, narr(c.last));
+      var msg = h('p', {class:'dead', role:'status'});
+      var done = false;
+      function dead(t){
+        msg.textContent = t;
+        if (!msg.isConnected) add(r, msg);
+        if (done) return; done = true;
+        later(function(){ step(r, c.next, next); }, 700);
+      }
+      add(r, h('div', {class:'row'}, c.deads.map(function(d){
+        return h('button', {class:'btn', type:'button', onclick:function(){ dead(d[1]); }}, d[0]);
+      })));
+    }
+    nextStep();
+  }
+
+  /* ---------- 되감기 ---------- */
+  function sRewind(r){
+    var c = who().rewind;
+    hud(1, '되감기');
+    var labels = c.labels;
+    var tick = h('p', {class:'rewind-tick', 'aria-live':'polite'}, labels[0]);
+    var tape = h('div', {class:'tape run', 'aria-hidden':'true'});
+    var box = h('div', {class:'rewind'}, h('p', {class:'rewind-word'}, '되감기'), tape, tick);
+    r.append(box);
+    function end(){
+      tick.textContent = labels[labels.length - 1];
+      tape.classList.remove('run');
+      add(box, narr(c.narr));
+      step(box, c.btn, next);
+    }
+    if (reduce) { end(); return; }
+    var n = 0;
+    var iv = setInterval(function(){
+      n++; tick.textContent = labels[n];
+      if (n >= labels.length - 1){ clearInterval(iv); end(); }
+    }, 340);
+    timers.push(iv);
+  }
+
+  /* ---------- 2. 동의 ---------- */
+  function sCh2(r){
+    var c = who().ch2;
+    hud(2, '2장 · 동의');
+    add(r, chip(c.chip));
+    add(r, narr(c.narr));
+    step(r, c.install, function(){
+      var n = 0, t0 = performance.now();
+      var bold = h('b', null, c.bold0);
+      var pressure = h('p', {class:'pressure', role:'status'});
+      var err = h('p', {class:'app-err', role:'alert'});
+      var items = [
+        { id:'c1', tag:'[필수]', label:'서비스 이용약관 및 개인정보 수집 동의', small:c.term1 },
+        { id:'c2', tag:'[선택]', label:'건강정보 맞춤 혜택 및 연계 서비스 제공', small:TERM2 },
+        { id:'c3', tag:c.tag3, label:c.label3, small:c.term3 }
+      ];
+      var ul = h('ul', {class:'terms'});
+      items.forEach(function(it){
+        var sp = h('div', {class:'small-print', html:it.small, hidden:true, tabindex:'0'});
+        var cb = h('input', {type:'checkbox', id:it.id, checked:true});
+        cb.checked = true;
+        ul.append(h('li', null,
+          h('div', {class:'term-line'}, cb,
+            h('label', {for:it.id, html:'<i>' + it.tag + '</i> ' + it.label}),
+            h('button', {class:'term-more', type:'button', 'aria-label':it.label + ' 내용 보기', onclick:function(){ sp.hidden = !sp.hidden; S.readTerms = true; }}, '보기')
+          ), sp));
+      });
+      function submit(all){
+        var cs = items.map(function(it){ return document.getElementById(it.id); });
+        if (all) cs.forEach(function(x){ x.checked = true; });
+        if (!cs[0].checked){ err.textContent = c.err; return; }
+        S.consentMs = performance.now() - t0;
+        S.optional = (cs[1].checked ? 1 : 0) + (cs[2].checked ? 1 : 0);
+        S.agreedAll = S.optional === 2;
+        S.doneChip = c.done(n, cs[2].checked);
+        next();
+      }
+      add(r, h('div', {class:'app'},
+        h('div', {class:'app-bar'}, h('b', null, c.app), h('span', null, '가상의 앱')),
+        h('div', {class:'app-body'},
+          h('div', {class:'queue'}, h('span', null, c.venue), h('span', null, c.prefix, bold)),
+          h('h3', null, c.title),
+          ul, err,
+          h('button', {class:'btn-app', type:'button', onclick:function(){ submit(true); }}, c.all),
+          pressure,
+          h('button', {class:'btn-link', type:'button', onclick:function(){ submit(false); }}, c.some)
+        )
+      ));
+      var iv = setInterval(function(){
+        n++;
+        var out = c.tick(n);
+        if (out.bold) bold.textContent = out.bold;
+        pressure.textContent = out.msg;
+      }, 3500);
+      timers.push(iv);
+    });
+  }
+
+  /* ---------- 2-2. 열린 문 ---------- */
+  function sGate(r){
+    var c = who().gate;
+    hud(2, '2장 · 동의');
+    holders(1);
+    var sec = S.consentMs == null ? '–' : (S.consentMs / 1000).toFixed(1);
+    add(r, chip(S.doneChip || '완료'));
+    add(r, h('h2', {class:'h2'}, '방금, 문이 열렸습니다'));
+    add(r, h('p', {class:'stat'}, '동의까지 ' + sec + '초 · 약관은 ' + (S.readTerms ? '펼쳐 봤습니다' : '펼쳐 보지 않았습니다')));
+    if (S.optional === 0){
+      add(r, narr(c.none));
+      add(r, narr(GATE_NONE2));
+    } else {
+      add(r, narr(c.all));
+    }
+    add(r, h('div', {class:'flow', 'aria-label':'기록이 넘어가는 경로'},
+      h('div', {class:'flow-lab'}, '보내는 곳'),
+      h('div', {class:'flow-out'}, ['병원', '약국', '건강보험공단', '심사평가원', '유전자검사기관'].map(function(t){ return h('span', null, t); })),
+      h('div', {class:'flow-lab'}, '넘어가는 기록'),
+      h('div', {class:'flow-chips'}, c.chips.map(function(t){ return h('span', null, t); })),
+      h('div', {class:'flow-arrow'}, '↓ 정기 전송'),
+      h('div', {class:'flow-gate'}, '관리전문기관'),
+      h('div', {class:'flow-arrow'}, '↓'),
+      h('div', {class:'flow-out'}, h('span', null, '의료플랫폼'), h('span', null, '보험사'), h('span', null, '제약회사')),
+      info(c.tip)
+    ));
+    step(r, '기록이 흘러간 곳 따라가기', next);
+  }
+
+  /* ---------- 3. 세 개의 앱 ---------- */
+  function sCh3(r){
+    hud(3, '3장 · 세 화면');
+    add(r, chip('그날 이후'));
+    add(r, h('h2', {class:'h2'}, '내 기록이 도착한 곳'));
+    var guide = h('p', {class:'note', role:'status'}, '아이콘을 눌러 화면을 열어 보세요. 0/3');
+    add(r, guide);
+    var seen = [false, false, false], nextShown = false;
+    var apps = [
+      ['의료플랫폼', '#2f6bff', '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>'],
+      ['보험사', '#12907f', '<svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg>'],
+      ['제약회사', '#5b4fd6', '<svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg>']
+    ];
+    var box = h('div');
+    var btns = apps.map(function(a, k){
+      return h('button', {class:'icon', type:'button', 'aria-pressed':'false', style:'--brand:' + a[1], onclick:function(){ open(k); }}, h('i', {html:a[2], 'aria-hidden':'true'}), a[0]);
+    });
+    add(r, h('div', {class:'dock'}, btns));
+    add(r, box);
+
+    function open(k){
+      btns.forEach(function(b, n){ b.setAttribute('aria-pressed', n === k ? 'true' : 'false'); });
+      if (!seen[k]){ seen[k] = true; btns[k].classList.add('seen'); holders(1 + seen.filter(Boolean).length); }
+      box.innerHTML = '';
+      add(box, [p1, p2, p3][k]());
+      var n = seen.filter(Boolean).length;
+      guide.textContent = n < 3 ? '아이콘을 눌러 화면을 열어 보세요. ' + n + '/3' : '세 화면을 모두 확인했습니다.';
+      if (n === 3 && !nextShown){ nextShown = true; step(r, '이듬해로', next); }
+    }
+    function shell(k, name, body){
+      return h('div', {class:'app', style:'--brand:' + apps[k][1]},
+        h('div', {class:'app-bar'}, h('b', null, name), h('span', null, '가상의 화면')),
+        h('div', {class:'app-body'}, body));
+    }
+
+    function p1(){
+      var c = who().platform;
+      return h('div', {class:'below'},
+        h('p', {class:'lead'}, c.lead),
+        shell(0, c.name, [
+          h('div', {class:'stats'}, c.stats.map(function(x){ return h('span', null, h('b', null, x[0]), x[1]); })),
+          h('h3', null, c.heading),
+          h('ul', {class:'ads'}, c.ads.map(function(x){ return h('li', null, h('small', null, x[0]), x[1]); }))
+        ]),
+        factI('흩어져 있던 기록이 한 기업에 모이면 <b>광고판</b>이 됩니다.',
+          '<p>진료 예약 앱, 비대면진료 앱, 건강 기기 회사 같은 민간 기업도 관리전문기관이 될 수 있습니다(제20조).</p><p>진단명이나 추정된 질병 위험에 기반한 광고는 금지되지만(제4조제2항제3호), 이 법에는 어겼을 때의 제재 조항이 없습니다(제36조, 제38조).</p><p>금지 대상도 이 법에 따라 제공받은 정보뿐이어서, 기업이 자기 서비스에서 직접 쌓은 정보에는 미치지 않습니다.</p><p class="eg-t">화면과 광고 문구는 가상 예시입니다.</p>')
+      );
+    }
+
+    function p2(){
+      var ci = who().insurer;
+      var recs = ci.recs;
+      var rows = [['A', '가입 가능 · 표준 보험료'], ['B', '보험료 할증'], ['C', '보험료 할증 · 일부 보장 제외'], ['D', ci.worst]];
+      var n = 0;
+      var letter = h('div', {class:'grade-letter', 'data-g':'A'}, 'A');
+      var verdict = h('dd', null, rows[0][1]);
+      var list = h('ul', {class:'recs'}, h('li', {class:'none'}, '아직 불러온 기록이 없습니다'));
+      var after = h('div', {class:'below'});
+      var load = h('button', {class:'btn-app', type:'button', onclick:function(){
+        if (n === 0) list.innerHTML = '';
+        add(list, h('li', null, recs[n] + ' 불러옴'));
+        n++;
+        letter.textContent = rows[n][0]; letter.setAttribute('data-g', rows[n][0]);
+        verdict.textContent = rows[n][1]; verdict.className = 'bad';
+        if (n < recs.length) { load.textContent = recs[n] + ' 불러오기'; return; }
+        load.remove();
+        add(after, factI('이 법이 금지한 활용입니다. 그러나 <b>이 법에는 어겼을 때의 제재 조항이 없습니다.</b>',
+          '<p>보험 가입 거절, 보험료와 대출금리의 차등, 인사 결정에 의료정보를 쓰는 것은 금지됩니다(제4조제2항제2호).</p><p>그러나 이 금지를 어겨도 벌칙, 과태료, 시정조치 어느 조항에도 해당하지 않습니다(제32조, 제36조, 제38조).</p><p>관리전문기관의 결격사유 규정이 없어, 보험회사나 금융회사가 지정받는 것도 막지 못합니다(제20조).</p>' + PIPA_NOTE + '<p class="eg-t">화면, 등급, 결과는 가상 예시입니다.</p>'));
+        add(after, h('p', {class:'lead'}, '같은 등급은 채용 심사나 입주 심사 같은 다른 곳으로도 흘러갈 수 있습니다. 등급을 매기는 잣대는 세 번째 화면에서 만들어집니다.'));
+      }}, recs[0] + ' 불러오기');
+      return h('div', {class:'below'},
+        h('p', {class:'lead'}, ci.lead),
+        shell(1, '새봄생명 가입 심사', [
+          h('div', {class:'stats'}, ci.stats.map(function(x){ return h('span', null, h('b', null, x[0]), x[1]); })),
+          h('div', {class:'card'}, h('h4', null, '관리전문기관에서 불러온 기록'), list, load),
+          h('div', {class:'card'},
+            h('h4', null, '심사 결과'),
+            h('div', {class:'grade', role:'status'}, letter, h('dl', null, h('dt', null, '판정'), verdict)))
+        ]),
+        after
+      );
+    }
+
+    function p3(){
+      var steps = [['1명', 2], ['1,000명', 30], ['10만 명', 65], ['500만 명', 100]];
+      var k = 0, tries = 0;
+      var count = h('b', null, steps[0][0]);
+      var bar = h('i', {style:'width:2%'});
+      var modelBox = h('div', {class:'below'});
+      var after = h('div', {class:'below'});
+      var gather = h('button', {class:'btn-app', type:'button', onclick:function(){
+        k++; count.textContent = steps[k][0]; bar.style.width = steps[k][1] + '%';
+        if (k === steps.length - 1){ gather.remove(); model(); }
+      }}, '더 모으기');
+      function model(){
+        var g = h('div', {class:'grade-letter', 'data-g':'A'}, '?');
+        var calc = h('button', {class:'btn-app', type:'button', onclick:function(){
+          calc.remove();
+          g.textContent = 'D'; g.setAttribute('data-g', 'D');
+          add(after, factI('이름을 지워도, 모이면 <b>모든 사람에게 등급을 매기는 잣대</b>가 됩니다.',
+            '<p>2차활용 지원기관이 요청하면 의료기관 같은 정보보유기관은 기록을 가명처리해 내줘야 합니다(제13조제5항). 건강보험공단과 심사평가원은 복지부 장관이 요청하면 특별한 사유가 없는 한 따라야 합니다(제10조제2항). 어느 단계에도 본인 동의는 필요 없습니다.</p><p>정신질환·유전질환 정보는 동의가 원칙이지만, 기관장이 위원을 위촉하는 기관 심의위원회가 승인하면 동의 없이 쓸 수 있습니다(제15조제2항 단서, 제17조제2항).</p><p>개인이나 집단에 불리한 결정을 내리는 활용은 금지되지만(제4조제2항) 이 법에는 제재 조항이 없고, 가명 기록의 활용 목적은 대통령령에 맡겼습니다(제13조제1항).</p><p class="eg-t">화면, 수치, 등급은 가상 예시입니다.</p>'));
+          add(after, h('div', {class:'optout'}, h('span', null, '내 기록은 빼 주세요'), sw));
+          add(after, msg);
+        }}, '한 사람의 이력 넣기');
+        add(modelBox, h('div', {class:'card'},
+          h('h4', null, '위험 예측 모델 · 학습 완료'),
+          h('div', {class:'grade', role:'status'}, g,
+            h('dl', null, h('dt', null, '입력'), h('dd', null, who().model))),
+          calc));
+      }
+      var msg = h('p', {class:'dead', role:'status', hidden:true});
+      var sw = h('button', {class:'switch', type:'button', role:'switch', 'aria-checked':'false', 'aria-label':'내 기록은 빼 주세요', onclick:function(){
+        if (sw.getAttribute('aria-checked') === 'true') return;
+        sw.setAttribute('aria-checked', 'true');
+        later(function(){
+          sw.setAttribute('aria-checked', 'false');
+          sw.classList.remove('snap'); void sw.offsetWidth; sw.classList.add('snap');
+          tries++;
+          msg.hidden = false;
+          msg.textContent = tries === 1 ? '거부 신청을 받을 창구가 없습니다.' : '정부대안에는 거부할 권리(옵트아웃)를 정한 조문이 없습니다.';
+        }, 650);
+      }});
+      return h('div', {class:'below'},
+        h('p', {class:'lead'}, '제약회사 연구팀의 화면입니다. 이름을 지운 가명 기록을 받아 모읍니다. 직접 모아 보세요.'),
+        shell(2, '한울제약 데이터랩', [
+          h('div', {class:'card'},
+            h('h4', null, '가명 진료기록 데이터셋'),
+            h('p', {class:'pool-n'}, h('span', null, '모인 기록'), count),
+            h('div', {class:'meter', 'aria-hidden':'true'}, bar),
+            gather),
+          modelBox
+        ]),
+        after
+      );
+    }
+  }
+
+  /* ---------- 4. 유출 ---------- */
+  function sCh4(r){
+    hud(4, '4장 · 유출');
+    add(r, chip('시행 2년째 · 가상 상황'));
+    add(r, h('div', {class:'alert', role:'alert'},
+      h('div', {class:'alert-head'}, h('span', null, '긴급 안내'), h('span', null, '06:12')),
+      '민간 의료 마이데이터 관리전문기관 서버가 해킹되었습니다. 가입자의 진료, 처방, 유전 정보가 다크웹에 유출되었습니다.'));
+    S.leaked = true; drawHolders();
+    add(r, narr('유출된 내 정보 목록입니다. 바꿀 수 있는 것부터 바꿔 보세요.'));
+    var data = [
+      ['앱 비밀번호', '바꾸기', true, '변경 완료'],
+      ['카드 번호', '재발급', true, '재발급 완료'],
+      [who().leaks[0], '바꾸기', false, '바꿀 수 없음'],
+      [who().leaks[1], '바꾸기', false, '바꿀 수 없음'],
+      ['유전정보', '바꾸기', false, '바꿀 수 없음 · 가족도 함께 노출']
+    ];
+    var left = data.length;
+    var ul = h('ul', {class:'leaks'});
+    data.forEach(function(d){
+      var li = h('li', null, h('span', null, d[0]));
+      var b = h('button', {class:'btn small', type:'button', onclick:function(){
+        b.remove();
+        li.append(h('span', {class:'res ' + (d[2] ? 'ok' : 'no')}, d[3]));
+        if (!d[2]) li.classList.add('shake');
+        if (--left === 0) after();
+      }}, d[1]);
+      li.append(b); ul.append(li);
+    });
+    add(r, ul);
+    function after(){
+      add(r, narr('비밀번호와 카드는 새로 받으면 됩니다. 병력과 유전정보는 <strong>평생 바꿀 수 없습니다.</strong>'));
+      step(r, '유전정보가 닿는 범위 보기', family);
+    }
+    function family(){
+      var ck = who().kin;
+      var kin = ck.rows;
+      var bars = [];
+      var ul = h('ul', {class:'kin'}, kin.map(function(k){
+        var bar = h('i', {style:'width:0'}); bars.push([bar, k[2]]);
+        return h('li', {class:k[3] ? 'src' : null}, h('span', null, k[0]), h('div', {class:'meter', 'aria-hidden':'true'}, bar), h('b', null, k[1]));
+      }));
+      add(r, h('div', {class:'panel'},
+        h('h3', null, '한 사람의 유전정보는 가족 모두의 정보'),
+        h('p', null, ck.intro),
+        ul,
+        factI(ck.fact,
+          '<p>막대는 같은 조상에게서 물려받아 ' + ck.whose + ' 공유하는 유전정보의 비율입니다. 부모와 자녀는 절반이고, 나머지 관계는 평균값입니다.</p><p>가족 한 사람이 누구인지 알려지면, 가명처리된 다른 가족의 기록도 누구 것인지 좁혀 갈 수 있습니다.</p><p>정부대안에는 유전정보의 정의가 없고(제2조), 가족에게 동의나 거부를 묻는 조항도 없습니다. 유전질환 정보는 기관 심의위원회가 승인하면 본인 동의 없이도 쓸 수 있습니다(제15조제2항 단서).</p>')
+      ));
+      later(function(){ bars.forEach(function(b){ b[0].style.width = b[1] + '%'; }); }, 120);
+      step(r, '기업에 배상 요구하기', function(){
+        add(r, h('p', {class:'dead'}, '회사 답변: 법이 정한 보호조치를 모두 이행했으므로 과실이 없고, 배상 책임도 없다고 판단합니다. 이의가 있으시면 소송으로 다투시기 바랍니다.'));
+        later(function(){
+          add(r, factI('집단소송 제도는 없습니다. 피해자는 <b>각자 소송해야 합니다.</b>',
+            '<p>개인정보 보호법에는 손해배상(제39조)과 300만 원 이하의 법정손해배상(제39조의2) 규정이 있고, 과실이 없다는 점은 기업이 입증해야 합니다.</p><p>그러나 배상을 받으려면 피해자가 각자 소송을 내야 합니다. 단체소송(제51조)으로는 침해 행위의 중지만 청구할 수 있고, 배상은 청구할 수 없습니다.</p><p>2008년 옥션 해킹 사건에서 대법원은 회사가 법령이 정한 보호조치를 다했다고 보아 배상 책임을 인정하지 않았습니다(2015년 선고).</p><p>정부대안은 관리전문기관에 손해배상책임 이행을 위한 보험이나 공제 가입 등을 요구할 뿐(제20조제5항), 집단소송은 두지 않았습니다.</p>'));
+          step(r, '이 규칙은 누가 정했을까', next);
+        }, 800);
+      }, '');
+    }
+  }
+
+  /* ---------- 5. 판결 ---------- */
+  var QS = [
+    { t:'기업이 내 진료·처방 기록을 광고나 차별에 쓰면 엄격히 처벌해야 한다.',
+      gov:'금지는 합니다. 그러나 이 법에는 어겼을 때의 제재 조항이 없습니다.',
+      tip:'<p>차별적 결정, 고용·보험·신용 차등, 질병 위험에 기반한 광고를 금지합니다(제4조제2항).</p><p>그러나 이 금지를 어긴 행위는 벌칙(제36조), 과태료(제38조), 시정조치(제32조) 어디에도 들어 있지 않습니다.</p><p>처벌되는 차별은 관리전문기관이 정신질환자, 장애인 등을 차별한 경우 하나뿐입니다(제20조제4항제3호).</p>' + PIPA_NOTE },
+    { t:'내 의료정보를 기업 연구에 쓰지 말라고 거부할 수 있어야 한다.',
+      gov:'거부할 권리(옵트아웃)를 정한 조문이 없습니다.',
+      tip:'<p>가명처리한 기록은 본인 동의 없이 제공됩니다(제13조제5항, 제15조제1항).</p><p>그 어느 단계에도 거부권을 정한 조문이 없습니다.</p>' },
+    { t:'보험사와 금융사는 내 의료기록을 모으는 관리전문기관이 될 수 없어야 한다.',
+      gov:'결격사유 규정이 없습니다.',
+      tip:'<p>보험회사나 금융회사가 지정받는 것을 막는 규정이 없습니다.</p><p>장관이 사업계획의 목적 부합을 요건으로 삼거나 조건을 붙일 수 있지만 의무가 아니고, 세부 기준은 개인정보 보호법을 준용합니다(제20조제1항·제3항).</p>' }
+  ];
+  function sCh5(r){
+    hud(5, '5장 · 판결');
+    S.votes = [];
+    add(r, chip('다시 오늘'));
+    add(r, h('h2', {class:'h2'}, '시민의 판결'));
+    add(r, narr('지금까지는 가정입니다. 법은 아직 통과되지 않았고, 정부대안은 국회 보건복지위원회에서 심사 중입니다. 규칙을 당신이 먼저 정한 뒤 법안과 견주어 보세요.'));
+    ask(0);
+    function ask(k){
+      var q = QS[k];
+      var ans = h('div');
+      var b1 = h('button', {class:'btn', type:'button'}, '그래야 한다');
+      var b2 = h('button', {class:'btn', type:'button'}, '그럴 필요 없다');
+      function pick(v, b){
+        b1.disabled = b2.disabled = true; b.classList.add('picked');
+        S.votes[k] = v;
+        add(ans, h('div', {class:'q-a'},
+          h('p', {class:'gov'}, h('span', {class:'lab'}, '정부대안'), q.gov, ' ', info(q.tip))));
+        if (k < QS.length - 1) step(r, '다음 질문', function(){ ask(k + 1); });
+        else {
+          var yes = S.votes.filter(Boolean).length;
+          add(r, narr(yes ? '당신이 요구한 안전장치 ' + yes + '개 가운데 정부안에 담긴 것은 <strong>0개</strong>입니다.' : '세 가지 모두 필요 없다고 판결했습니다. 정부대안의 답도 크게 다르지 않습니다.'));
+          step(r, '체험 기록 보기', next);
+        }
+      }
+      b1.addEventListener('click', function(){ pick(true, b1); });
+      b2.addEventListener('click', function(){ pick(false, b2); });
+      add(r, h('div', {class:'q'},
+        h('p', {class:'q-n'}, '질문 ' + (k + 1) + ' / ' + QS.length),
+        h('p', {class:'q-t'}, q.t),
+        h('div', {class:'row'}, b1, b2),
+        ans));
+    }
+  }
+
+  /* ---------- 결말 ---------- */
+  function sEnd(r){
+    hud(5, '체험 기록');
+    var sec = S.consentMs == null ? '–' : (S.consentMs / 1000).toFixed(1) + '초';
+    var yes = S.votes.filter(Boolean).length;
+    var line1 = who().end + '을 넘기는 데 걸린 시간, ' + sec + '.';
+    var line2 = yes
+      ? '내가 요구한 안전장치 ' + yes + '개 중 정부안에 담긴 것, 0개.'
+      : '정부안에는 거부권도, 금지를 어겼을 때의 제재도, 결격사유도 없습니다.';
+    add(r, h('p', {class:'big'}, line1));
+    add(r, h('p', {class:'big zero'}, line2));
+    add(r, h('div', {class:'result'},
+      h('h3', null, '나의 체험 기록', h('span', null, 'No. 0012')),
+      h('dl', null,
+        h('dt', null, '동의까지 걸린 시간'), h('dd', null, sec),
+        h('dt', null, '약관'), h('dd', null, S.readTerms ? '펼쳐 봄' : '펼쳐 보지 않음'),
+        h('dt', null, '동의 범위'), h('dd', null, S.optional === 0 ? '필수만' : (S.agreedAll ? '전체 동의' : '일부 선택')),
+        h('dt', null, '내 기록을 가져간 곳'), h('dd', {class:'bad'}, S.holders + '곳 + 유출'),
+        h('dt', null, '내가 요구한 안전장치'), h('dd', null, yes + '개'),
+        h('dt', null, '그중 정부안에 담긴 것'), h('dd', {class:'bad'}, '0개')
+      )));
+    add(r, narr('<strong>병원을 사기업에 팔아야만 민영화가 아닙니다.</strong> 나와 가족의 기록이 영리 기업의 서버로 넘어가고, 기업은 그 데이터로 돈을 벌며 우리 몸에 등급을 매길 수 있게 됩니다.'));
+    add(r, note('디지털헬스케어법 정부대안은 2026년 9월 국회에 제출되어 보건복지위원회 법안심사소위원회에서 심사 중입니다.'));
+    var hint = h('p', {class:'note', role:'status'});
+    var cta = SIGN_URL
+      ? h('a', {class:'btn cta', href:SIGN_URL, target:'_blank', rel:'noopener'}, '국회 보건복지위원회에 반대 서명하기')
+      : h('button', {class:'btn cta', type:'button', onclick:function(){ hint.textContent = '서명 페이지 주소를 연결하면 이 버튼이 그곳으로 이동합니다.'; }}, '국회 보건복지위원회에 반대 서명하기');
+    var share = '당신의 의료정보는 안전한가요?\n디지털헬스케어법, 4분 체험으로 확인해 보세요.\n👉 ' + SHARE_URL;
+    add(r, h('div', {class:'row'}, cta));
+    add(r, h('div', {class:'tell'},
+      h('h3', null, '이 체험 링크 알리기'),
+      h('p', {class:'tell-text'}, share),
+      h('button', {class:'btn', type:'button', onclick:function(){
+        var done = function(){ hint.textContent = '복사했습니다.'; };
+        var fail = function(){ hint.textContent = '복사하지 못했습니다. 위 문구를 길게 눌러 직접 복사해 주세요.'; };
+        try { navigator.clipboard.writeText(share).then(done, fail); } catch (e) { fail(); }
+      }}, '링크 복사하기'),
+      hint));
+    add(r, h('div', {class:'row'},
+      h('button', {class:'btn', type:'button', onclick:function(){
+        S = { i:0, who:null, consentMs:null, readTerms:false, agreedAll:null, optional:null, holders:0, leaked:false, votes:[] };
+        go(0);
+      }}, '처음부터 다시')));
+  }
+
+  var scenes = [sTitle, sCh1, sRewind, sCh2, sGate, sCh3, sCh4, sCh5, sEnd];
+
+  function start(data){
+    if (data && typeof data.i === 'number' && data.i >= 0 && data.i < scenes.length){
+      for (var k in data) S[k] = data[k];
+    }
+    go(S.i);
+  }
+  var hot = window.claude && window.claude.hot;
+  if (hot && hot.snapshot) { try { hot.snapshot(function(){ return S; }); } catch (e) {} }
+  if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
+})();
+</script>
+</body>
+</html>
