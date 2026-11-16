@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-NL29D7LJ');</script>
+<!-- End Google Tag Manager -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>당신의 의료정보는 안전한가요?</title>
@@ -307,6 +310,9 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
 </style>
 </head>
 <body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NL29D7LJ" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
 <div class="stage is-title" id="stage">
   <header class="hud">
     <div class="hud-ch" id="hudCh">1장</div>
@@ -328,6 +334,25 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
   var scene = document.getElementById('scene');
   var timers = [];
   var S = { i:0, who:null, consentMs:null, readTerms:false, agreedAll:null, optional:null, holders:0, leaked:false, votes:[] };
+
+  /* ---------- 분석(GTM dataLayer) ----------
+     모든 이벤트는 event:'track' 하나로 보내고, 실제 이벤트 이름은 event_name에 담습니다.
+     개인정보는 보내지 않습니다(페르소나 키, 버튼 이름, 선택 결과만). */
+  var SCENE_NAMES = ['title','ch1','rewind','ch2','gate','ch3','ch4','ch5','end'];
+  function track(name, p){
+    p = p || {};
+    try {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event:'track',
+        event_name:name,
+        persona:S.who || undefined,
+        scene:SCENE_NAMES[S.i],
+        label:p.label,
+        value:p.value
+      });
+    } catch (e) {}
+  }
 
   function h(tag, attrs){
     var e = document.createElement(tag), k, v;
@@ -363,7 +388,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
   function fact(html){ return h('p', {class:'fact', html:html}); }
   function step(root, label, fn, cls){
     var row = h('div', {class:'row'});
-    row.append(h('button', {class:'btn ' + (cls || 'primary'), type:'button', onclick:function(){ row.remove(); fn(); }}, label));
+    row.append(h('button', {class:'btn ' + (cls || 'primary'), type:'button', onclick:function(){ track('step_click', {label:label}); row.remove(); fn(); }}, label));
     add(root, row);
     return row;
   }
@@ -385,6 +410,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
       if (top + th > sr.height - 12) top = Math.max(8, br.top - sr.top - th - 8);
       tipEl.style.top = top + 'px';
       tipBtn = b; b.setAttribute('aria-expanded', 'true');
+      track('info_open', {label:String(html).replace(/<[^>]+>/g, '').slice(0, 40)});
     });
     return b;
   }
@@ -410,6 +436,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
     timers.forEach(function(t){ clearTimeout(t); clearInterval(t); }); timers = [];
     closeTip();
     S.i = i;
+    track('scene_' + SCENE_NAMES[i]);
     scene.innerHTML = '';
     scene.scrollTop = 0;
     stage.classList.toggle('is-title', i === 0);
@@ -624,7 +651,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
   function sTitle(r){
     var bar = function(w){ return h('span', {class:'bar', style:'width:' + w + 'px'}); };
     var picks = ['job', 'home', 'silver'].map(function(k){
-      return h('button', {class:'who', type:'button', onclick:function(){ S.who = k; next(); }},
+      return h('button', {class:'who', type:'button', onclick:function(){ S.who = k; track('persona_select', {label:k}); next(); }},
         h('b', null, P[k].pick[0]), h('span', null, P[k].pick[1]));
     });
     r.append(h('section', {class:'title'},
@@ -683,7 +710,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
         later(function(){ step(r, c.next, next); }, 700);
       }
       add(r, h('div', {class:'row'}, c.deads.map(function(d){
-        return h('button', {class:'btn', type:'button', onclick:function(){ dead(d[1]); }}, d[0]);
+        return h('button', {class:'btn', type:'button', onclick:function(){ track('ch1_dead_click', {label:d[0]}); dead(d[1]); }}, d[0]);
       })));
     }
     nextStep();
@@ -737,17 +764,18 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
         ul.append(h('li', null,
           h('div', {class:'term-line'}, cb,
             h('label', {for:it.id, html:'<i>' + it.tag + '</i> ' + it.label}),
-            h('button', {class:'term-more', type:'button', 'aria-label':it.label + ' 내용 보기', onclick:function(){ sp.hidden = !sp.hidden; S.readTerms = true; }}, '보기')
+            h('button', {class:'term-more', type:'button', 'aria-label':it.label + ' 내용 보기', onclick:function(){ sp.hidden = !sp.hidden; S.readTerms = true; if (!sp.hidden) track('terms_open', {label:it.id}); }}, '보기')
           ), sp));
       });
       function submit(all){
         var cs = items.map(function(it){ return document.getElementById(it.id); });
         if (all) cs.forEach(function(x){ x.checked = true; });
-        if (!cs[0].checked){ err.textContent = c.err; return; }
+        if (!cs[0].checked){ err.textContent = c.err; track('consent_blocked'); return; }
         S.consentMs = performance.now() - t0;
         S.optional = (cs[1].checked ? 1 : 0) + (cs[2].checked ? 1 : 0);
         S.agreedAll = S.optional === 2;
         S.doneChip = c.done(n, cs[2].checked);
+        track('consent_submit', {label: S.optional === 0 ? 'required_only' : (S.agreedAll ? 'all' : 'partial'), value: Math.round(S.consentMs / 1000)});
         next();
       }
       add(r, h('div', {class:'app'},
@@ -822,7 +850,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
 
     function open(k){
       btns.forEach(function(b, n){ b.setAttribute('aria-pressed', n === k ? 'true' : 'false'); });
-      if (!seen[k]){ seen[k] = true; btns[k].classList.add('seen'); holders(1 + seen.filter(Boolean).length); }
+      if (!seen[k]){ track('ch3_app_open', {label:apps[k][0]}); seen[k] = true; btns[k].classList.add('seen'); holders(1 + seen.filter(Boolean).length); }
       box.innerHTML = '';
       add(box, [p1, p2, p3][k]());
       var n = seen.filter(Boolean).length;
@@ -859,6 +887,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
       var list = h('ul', {class:'recs'}, h('li', {class:'none'}, '아직 불러온 기록이 없습니다'));
       var after = h('div', {class:'below'});
       var load = h('button', {class:'btn-app', type:'button', onclick:function(){
+        track('ch3_insurer_load', {label:recs[n], value:n + 1});
         if (n === 0) list.innerHTML = '';
         add(list, h('li', null, recs[n] + ' 불러옴'));
         n++;
@@ -891,12 +920,13 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
       var modelBox = h('div', {class:'below'});
       var after = h('div', {class:'below'});
       var gather = h('button', {class:'btn-app', type:'button', onclick:function(){
-        k++; count.textContent = steps[k][0]; bar.style.width = steps[k][1] + '%';
+        k++; track('ch3_pharma_gather', {value:k}); count.textContent = steps[k][0]; bar.style.width = steps[k][1] + '%';
         if (k === steps.length - 1){ gather.remove(); model(); }
       }}, '더 모으기');
       function model(){
         var g = h('div', {class:'grade-letter', 'data-g':'A'}, '?');
         var calc = h('button', {class:'btn-app', type:'button', onclick:function(){
+          track('ch3_pharma_model');
           calc.remove();
           g.textContent = 'D'; g.setAttribute('data-g', 'D');
           add(after, factI('이름을 지워도, 모이면 <b>모든 사람에게 등급을 매기는 잣대</b>가 됩니다.',
@@ -913,6 +943,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
       var msg = h('p', {class:'dead', role:'status', hidden:true});
       var sw = h('button', {class:'switch', type:'button', role:'switch', 'aria-checked':'false', 'aria-label':'내 기록은 빼 주세요', onclick:function(){
         if (sw.getAttribute('aria-checked') === 'true') return;
+        track('ch3_optout_try', {value:tries + 1});
         sw.setAttribute('aria-checked', 'true');
         later(function(){
           sw.setAttribute('aria-checked', 'false');
@@ -958,6 +989,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
     data.forEach(function(d){
       var li = h('li', null, h('span', null, d[0]));
       var b = h('button', {class:'btn small', type:'button', onclick:function(){
+        track('ch4_leak_click', {label:d[0], value:d[2] ? 1 : 0});
         b.remove();
         li.append(h('span', {class:'res ' + (d[2] ? 'ok' : 'no')}, d[3]));
         if (!d[2]) li.classList.add('shake');
@@ -1023,6 +1055,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
       var b2 = h('button', {class:'btn', type:'button'}, '그럴 필요 없다');
       function pick(v, b){
         b1.disabled = b2.disabled = true; b.classList.add('picked');
+        track('quiz_answer', {label:'q' + (k + 1), value:v ? 1 : 0});
         S.votes[k] = v;
         add(ans, h('div', {class:'q-a'},
           h('p', {class:'gov'}, h('span', {class:'lab'}, '정부대안'), q.gov, ' ', info(q.tip))));
@@ -1068,14 +1101,15 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
     add(r, note('디지털헬스케어법 정부대안은 2026년 9월 국회에 제출되어 보건복지위원회 법안심사소위원회에서 심사 중입니다.'));
     var hint = h('p', {class:'note', role:'status'});
     var cta = SIGN_URL
-      ? h('a', {class:'btn cta', href:SIGN_URL, target:'_blank', rel:'noopener'}, '국회 보건복지위원회에 반대 서명하기')
-      : h('button', {class:'btn cta', type:'button', onclick:function(){ hint.textContent = '서명 페이지 주소를 연결하면 이 버튼이 그곳으로 이동합니다.'; }}, '국회 보건복지위원회에 반대 서명하기');
+      ? h('a', {class:'btn cta', href:SIGN_URL, target:'_blank', rel:'noopener', onclick:function(){ track('sign_click'); }}, '국회 보건복지위원회에 반대 서명하기')
+      : h('button', {class:'btn cta', type:'button', onclick:function(){ track('sign_click'); hint.textContent = '서명 페이지 주소를 연결하면 이 버튼이 그곳으로 이동합니다.'; }}, '국회 보건복지위원회에 반대 서명하기');
     var share = '당신의 의료정보는 안전한가요?\n디지털헬스케어법, 4분 체험으로 확인해 보세요.\n👉 ' + SHARE_URL;
     add(r, h('div', {class:'row'}, cta));
     add(r, h('div', {class:'tell'},
       h('h3', null, '이 체험 링크 알리기'),
       h('p', {class:'tell-text'}, share),
       h('button', {class:'btn', type:'button', onclick:function(){
+        track('share_copy');
         var done = function(){ hint.textContent = '복사했습니다.'; };
         var fail = function(){ hint.textContent = '복사하지 못했습니다. 위 문구를 길게 눌러 직접 복사해 주세요.'; };
         try { navigator.clipboard.writeText(share).then(done, fail); } catch (e) { fail(); }
@@ -1083,6 +1117,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
       hint));
     add(r, h('div', {class:'row'},
       h('button', {class:'btn', type:'button', onclick:function(){
+        track('restart');
         S = { i:0, who:null, consentMs:null, readTerms:false, agreedAll:null, optional:null, holders:0, leaked:false, votes:[] };
         go(0);
       }}, '처음부터 다시')));
