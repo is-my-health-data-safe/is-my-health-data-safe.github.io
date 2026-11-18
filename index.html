@@ -303,6 +303,9 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
 .tell-text{margin:0;background:var(--night-2);border-radius:8px;padding:10px 12px;font-size:14px;line-height:1.6;white-space:pre-line;user-select:text;-webkit-user-select:text}
 .cta{background:var(--alarm);border-color:var(--alarm);color:#1a0906;font-size:17px;text-decoration:none;display:flex;align-items:center;justify-content:center}
 
+.credit{display:flex;flex-direction:column;gap:6px;margin-top:8px;padding-top:14px;border-top:1px solid var(--rule)}
+.credit a{color:var(--paper);text-decoration:underline;text-underline-offset:3px}
+
 @media (prefers-reduced-motion:reduce){
   .enter,.stamp.enter,.tape.run,.switch.snap,.leaks li.shake{animation:none}
   .switch,.switch::after,.meter i{transition:none}
@@ -1121,6 +1124,9 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
         S = { i:0, who:null, consentMs:null, readTerms:false, agreedAll:null, optional:null, holders:0, leaked:false, votes:[] };
         go(0);
       }}, '처음부터 다시')));
+    add(r, h('div', {class:'credit'},
+      h('p', {class:'note', html:'만든 사람 · 빠띠 시민기술실험실 씽쏭, 라도'}),
+      h('p', {class:'note', html:'<a href="https://forms.gle/n5ASiRZsvrY8nprm8" target="_blank" rel="noopener">의견 남기기</a> · <a href="https://campaigns.do/campaigns/2046" target="_blank" rel="noopener">빠띠 캠페인 페이지</a>'})));
   }
 
   var scenes = [sTitle, sCh1, sRewind, sCh2, sGate, sCh3, sCh4, sCh5, sEnd];
